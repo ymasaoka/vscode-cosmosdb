@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 export interface GraphConfiguration {
-  endpoint: string;
+  possibleEndpoints: string[];
+  actualEndpoint: string;
   endpointPort: number;
   key: string;
   databaseName: string;
@@ -13,7 +14,7 @@ export interface GraphConfiguration {
 }
 
 export function areConfigsEquals(config1: GraphConfiguration, config2: GraphConfiguration): boolean {
-  return config1.endpoint === config2.endpoint &&
+  return config1.possibleEndpoints.join(",") === config2.possibleEndpoints.join(",") &&
     config1.endpointPort === config2.endpointPort &&
     config1.databaseName === config2.databaseName &&
     config1.graphName === config2.graphName;

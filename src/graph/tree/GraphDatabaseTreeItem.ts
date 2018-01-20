@@ -13,7 +13,7 @@ export class GraphDatabaseTreeItem extends DocDBDatabaseTreeItemBase {
     public readonly contextValue: string = GraphDatabaseTreeItem.contextValue;
     public readonly childTypeLabel: string = 'Graph';
 
-    private _graphEndpoint: string;
+    private _possibleGremlinEndpoints: string[];
     private _graphPort: number;
 
     constructor(documentEndpoint: string, masterKey: string, database: DatabaseMeta, parentId: string) {
@@ -27,16 +27,22 @@ export class GraphDatabaseTreeItem extends DocDBDatabaseTreeItemBase {
 
     private _parseEndpoint(documentEndpoint: string): void {
         // Document endpoint: https://<graphname>.documents.azure.com:443/
-        // Gremlin endpoint: <graphname>.graphs.azure.com
+        // Old-style (before Dec 20, 2017) gremlin endpoint: <graphname>.graphs.azure.com
+        // New-style gremlin endpoint: <graphname>.gremlin.cosmosdb.azure.com
         let [, address, , port] = documentEndpoint.match(/^[^:]+:\/\/([^:]+)(:([0-9]+))?\/?$/);
-        this._graphEndpoint = address.replace(".documents.azure.com", ".graphs.azure.com");
-        console.assert(this._graphEndpoint.match(/\.graphs\.azure\.com$/), "Unexpected endpoint format");
+        let oldStyleEndpoint = address.replace(".documents.azure.com", ".graphs.azure.com");
+        let newStyleEndpoint = address.replace(".documents.azure.com", ".gremlin.cosmosdb.azure.com");
+        console.assert(oldStyleEndpoint.match(/\.graphs\.azure\.com$/), "Unexpected endpoint format");
+        console.assert(newStyleEndpoint.match(/\.gremlin\.cosmosdb\.azure\.com$/), "Unexpected endpoint format");
+
+        this._possibleGremlinEndpoints = [newStyleEndpoint, oldStyleEndpoint];
+
         this._graphPort = parseInt(port || "443");
         console.assert(this._graphPort > 0, "Unexpected port");
     }
 
-    get graphEndpoint(): string {
-        return this._graphEndpoint;
+    get possibleGremlinEndpoints(): string[] {
+        return this._possibleGremlinEndpoints;
     }
 
     get graphPort(): number {
