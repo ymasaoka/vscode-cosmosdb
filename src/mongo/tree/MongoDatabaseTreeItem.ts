@@ -90,8 +90,8 @@ export class MongoDatabaseTreeItem implements IAzureParentTreeItem {
 		return accountConnection.db(this.databaseName);
 	}
 
-	executeCommand(command: MongoCommand, context: IActionContext): Thenable<string> {
-		if (command.collection) {
+	executeCommand(command: MongoCommand, context: IActionContext, alwaysUseShell: boolean): Thenable<string> {
+		if (!alwaysUseShell && command.collection) {
 			return this.getDb()
 				.then(db => {
 					const collection = db.collection(command.collection);
@@ -101,11 +101,12 @@ export class MongoDatabaseTreeItem implements IAzureParentTreeItem {
 							return result;
 						}
 					}
+
 					return reportProgress(this.executeCommandInShell(command, context), 'Executing command');
 				});
 		}
 
-		if (command.name === 'createCollection') {
+		if (!alwaysUseShell && command.name === 'createCollection') {
 			return reportProgress(this.createCollection(stripQuotes(command.arguments.join(','))).then(() => JSON.stringify({ 'Created': 'Ok' })), 'Creating collection');
 		} else {
 			return reportProgress(this.executeCommandInShell(command, context), 'Executing command');

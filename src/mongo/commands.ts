@@ -17,6 +17,7 @@ import { MongoFindResultEditor } from './editors/MongoFindResultEditor';
 import { MongoFindOneResultEditor } from './editors/MongoFindOneResultEditor';
 import { MongoCommand } from './MongoCommand';
 import { MongoDatabaseTreeItem } from './tree/MongoDatabaseTreeItem';
+import { ext } from '../extensionVariables';
 
 export class MongoCommands {
 	public static async executeCommandFromActiveEditor(database: IAzureParentNode<MongoDatabaseTreeItem>, extensionPath, editorManager: CosmosEditorManager, tree: AzureTreeDataProvider, context: IActionContext): Promise<void> {
@@ -39,10 +40,11 @@ export class MongoCommands {
 				throw new Error('Please select a MongoDB database to run against by selecting it in the explorer and selecting the "Connect" context menu item');
 			}
 
-			if (command.name === 'find') {
+			let alwaysUseShell = vscode.workspace.getConfiguration().get<boolean>(ext.settingsKeys.mongoAlwaysUseShell);
+			if (command.name === 'find' && !alwaysUseShell) {
 				await editorManager.showDocument(new MongoFindResultEditor(database, command, tree), 'cosmos-result.json');
 			} else {
-				const result = await database.treeItem.executeCommand(command, context);
+				const result = await database.treeItem.executeCommand(command, context, alwaysUseShell);
 				if (command.name === 'findOne') {
 					if (result === "null") {
 						throw new Error(`Could not find any documents`)

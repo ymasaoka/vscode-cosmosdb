@@ -13,5 +13,6 @@ export namespace ext {
 
     export namespace settingsKeys {
         export const mongoShellPath = 'mongo.shell.path';
+        export const mongoAlwaysUseShell = 'mongo.alwaysUseShell';
     }
 }

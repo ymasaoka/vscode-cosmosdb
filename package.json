@@ -631,6 +631,11 @@
 					"description": "Command to execute to start the Mongo shell",
 					"default": null
 				},
+				"mongo.alwaysUseShell": {
+					"type": "boolean",
+					"description": "If true, all commands from Mongo scrapbook are executed through the Mongo shell",
+					"default": false
+				},
 				"cosmosDB.showExplorer": {
 					"type": "boolean",
 					"default": true,
