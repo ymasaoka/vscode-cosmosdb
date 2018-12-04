@@ -906,7 +906,7 @@
 		"ms-rest": "^2.2.1",
 		"opn": "^5.4.0",
 		"request-light": "^0.2.3",
-		"socket.io": "^1.7.3",
+		"socket.io": "^2.2.0",
 		"socket.io-client": "^1.7.3",
 		"underscore": "^1.8.3",
 		"vscode-azureextensionui": "^0.19.2",
