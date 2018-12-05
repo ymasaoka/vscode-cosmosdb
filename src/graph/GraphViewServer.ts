@@ -348,8 +348,7 @@ export class GraphViewServer extends EventEmitter {
   private async _executeQueryCoreForEndpoint(queryId: number, gremlinQuery: string, endpoint: IGremlinEndpoint): Promise<any[]> {
     this.log(`Executing query #${queryId} (${endpoint.host}:${endpoint.port}): ${truncateQuery(gremlinQuery)}`);
 
-    const client = gremlin.createClient(
-      endpoint.port,
+    const client = new gremlin.driver.Client(
       endpoint.host,
       {
         "session": false,
@@ -371,28 +370,46 @@ export class GraphViewServer extends EventEmitter {
     };
 
     let socketError: { message?: string };
-    client.on('error', handleError);
+    client._connection._ws.on('error', handleError);
 
     function handleError(err) {
       // These are errors that come from the web socket communication (i.e. address not found)
       socketError = err;
     }
 
-    // tslint:disable-next-line:no-any
-    return new Promise<[any[]]>((resolve, reject) => {
-      client.execute(gremlinQuery, {}, (err, results) => {
-        if (socketError) {
-          this.log("Gremlin communication error: ", socketError.message || socketError.toString());
-          reject(socketError);
-        } else if (err) {
-          this.log("Error from gremlin server: ", err.message || err.toString());
-          reject(err);
-        } else {
+    return new Promise((resolve, reject) => {
+      return client.submit(gremlinQuery, {})
+        .then((results) => {
           this.log("Results from gremlin", results);
           resolve(results);
-        }
-      });
+        })
+        .catch((err) => {
+          if (socketError) {
+            this.log("Gremlin communication error: ", socketError.message || socketError.toString());
+            reject(socketError);
+          } else {
+            this.log("Error from gremlin server: ", err.message || err.toString());
+            reject(err);
+          }
+        });
     });
+    /*
+        // tslint:disable-next-line:no-any
+        return new Promise<[any[]]>((resolve, reject) => {
+          client.execute(gremlinQuery, {}, (err, results) => {
+            if (socketError) {
+              this.log("Gremlin communication error: ", socketError.message || socketError.toString());
+              reject(socketError);
+            } else if (err) {
+              this.log("Error from gremlin server: ", err.message || err.toString());
+              reject(err);
+            } else {
+              this.log("Results from gremlin", results);
+              resolve(results);
+            }
+          });
+        });
+    */
   }
 
   private isParseError(err: { message?: string }): boolean {
@@ -470,6 +487,6 @@ export class GraphViewServer extends EventEmitter {
 
   // tslint:disable-next-line:no-any
   private log(_message, ..._args: any[]) {
-    // console.log(message, ...args);
+    console.log(_message, ..._args);
   }
 }
