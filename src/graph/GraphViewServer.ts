@@ -347,9 +347,9 @@ export class GraphViewServer extends EventEmitter {
   // tslint:disable-next-line:no-any
   private async _executeQueryCoreForEndpoint(queryId: number, gremlinQuery: string, endpoint: IGremlinEndpoint): Promise<any[]> {
     this.log(`Executing query #${queryId} (${endpoint.host}:${endpoint.port}): ${truncateQuery(gremlinQuery)}`);
-
+    let newHostURI = `${endpoint.host}:${endpoint.port}`;
     const client = new gremlin.driver.Client(
-      endpoint.host,
+      newHostURI,
       {
         "session": false,
         "ssl": endpoint.ssl,
@@ -378,7 +378,7 @@ export class GraphViewServer extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      return client.submit(gremlinQuery, {})
+      return client.submit(gremlinQuery)
         .then((results) => {
           this.log("Results from gremlin", results);
           resolve(results);
