@@ -10,6 +10,7 @@ import * as io from 'socket.io';
 import * as vscode from 'vscode';
 import { callWithTelemetryAndErrorHandling, IActionContext } from 'vscode-azureextensionui';
 import { removeDuplicatesById } from "../utils/array";
+import { rejectOnTimeout } from '../utils/timeout';
 import { GraphConfiguration } from './GraphConfiguration';
 import { GraphViewServerSocket } from "./GraphViewServerSocket";
 import { IGremlinEndpoint } from "./gremlinEndpoints";
@@ -376,23 +377,21 @@ export class GraphViewServer extends EventEmitter {
       // These are errors that come from the web socket communication (i.e. address not found)
       socketError = err;
     }
-
-    return new Promise((resolve, reject) => {
-      return client.submit(gremlinQuery)
-        .then((results) => {
-          this.log("Results from gremlin", results);
-          resolve(results);
-        })
-        .catch((err) => {
-          if (socketError) {
-            this.log("Gremlin communication error: ", socketError.message || socketError.toString());
-            reject(socketError);
-          } else {
-            this.log("Error from gremlin server: ", err.message || err.toString());
-            reject(err);
-          }
-        });
-    });
+    let clientSubmitTimeout = 25 * 1000;
+    return rejectOnTimeout(clientSubmitTimeout, () => client.submit(gremlinQuery)
+      .then((results) => {
+        this.log("Results from gremlin", results);
+        return results;
+      })
+      .catch((err) => {
+        if (socketError) {
+          this.log("Gremlin communication error: ", socketError.message || socketError.toString());
+          throw socketError;
+        } else {
+          this.log("Error from gremlin server: ", err.message || err.toString());
+          throw err;
+        }
+      }));
     /*
         // tslint:disable-next-line:no-any
         return new Promise<[any[]]>((resolve, reject) => {
