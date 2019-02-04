@@ -12,3 +12,5 @@ tslint.json
 .github/**
 test-results.xml
 .azure-pipelines/**
+node_modules
+out
