@@ -5,6 +5,23 @@
 
 'use strict';
 
+// // tslint:disable-next-line:no-var-requires
+// let utils = require('lazy-cache')(require);
+// // `npm install glob`
+// let glob = utils('glob');
+
+// console.log(glob.sync('*.js'));
+// console.log(glob.sync('*.js'));
+
+// // glob sync
+// console.log(utils.glob.sync('*.js'));
+
+// // glob async
+// // tslint:disable-next-line:no-function-expression
+// utils.glob('*.js', function (_err, files) {
+//     console.log(files);
+// });
+
 import * as clipboardy from 'clipboardy';
 import * as vscode from 'vscode';
 import { AzureTreeDataProvider, AzureTreeItem, AzureUserInput, callWithTelemetryAndErrorHandling, createApiProvider, createTelemetryReporter, IActionContext, registerCommand, registerEvent, registerUIExtensionVariables, SubscriptionTreeItem } from 'vscode-azureextensionui';
@@ -31,6 +48,11 @@ import { MongoDocumentTreeItem } from './mongo/tree/MongoDocumentTreeItem';
 import { TableAccountTreeItem } from './table/tree/TableAccountTreeItem';
 import { AttachedAccountsTreeItem, AttachedAccountSuffix } from './tree/AttachedAccountsTreeItem';
 import { CosmosDBAccountProvider } from './tree/CosmosDBAccountProvider';
+
+// declare class Register {
+//     register();
+//     //registerCommand('cosmosDB.selectSubscriptions', () => vscode.commands.executeCommand("azure-account.selectSubscriptions");)
+// }
 
 export async function activateInternal(context: vscode.ExtensionContext, perfStats: { loadStartTime: number, loadEndTime: number }): Promise<AzureExtensionApiProvider> {
     ext.context = context;

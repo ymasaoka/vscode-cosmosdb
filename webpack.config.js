@@ -108,6 +108,11 @@ let config = dev.getDefaultWebpackConfig({
                     }
                 ]
             })
+        },
+
+        {
+            test: /\.s$/,
+            loader: 'unlazy-loader'
         }
     ], // end of loaderRules
 
