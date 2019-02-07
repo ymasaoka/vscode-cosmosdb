@@ -24,8 +24,10 @@
 
 import * as clipboardy from 'clipboardy';
 import * as vscode from 'vscode';
-import { AzureTreeDataProvider, AzureTreeItem, AzureUserInput, callWithTelemetryAndErrorHandling, createApiProvider, createTelemetryReporter, IActionContext, registerCommand, registerEvent, registerUIExtensionVariables, SubscriptionTreeItem } from 'vscode-azureextensionui';
+import { AzureTreeDataProvider, AzureTreeItem, AzureUserInput, callWithTelemetryAndErrorHandling, createApiProvider, createTelemetryReporter, IActionContext, registerEvent, registerUIExtensionVariables, SubscriptionTreeItem } from 'vscode-azureextensionui';
+import * as ui from 'vscode-azureextensionui';
 import { AzureExtensionApi, AzureExtensionApiProvider } from 'vscode-azureextensionui/api';
+import { IActivator } from '../activationTypes';
 import { findTreeItem } from './commands/api/findTreeItem';
 import { pickTreeItem } from './commands/api/pickTreeItem';
 import { importDocuments } from './commands/importDocuments';
@@ -49,18 +51,18 @@ import { TableAccountTreeItem } from './table/tree/TableAccountTreeItem';
 import { AttachedAccountsTreeItem, AttachedAccountSuffix } from './tree/AttachedAccountsTreeItem';
 import { CosmosDBAccountProvider } from './tree/CosmosDBAccountProvider';
 
-// declare class Register {
-//     register();
-//     //registerCommand('cosmosDB.selectSubscriptions', () => vscode.commands.executeCommand("azure-account.selectSubscriptions");)
-// }
-
-export async function activateInternal(context: vscode.ExtensionContext, perfStats: { loadStartTime: number, loadEndTime: number }): Promise<AzureExtensionApiProvider> {
+export async function activateInternal(context: vscode.ExtensionContext, activator: IActivator, perfStats: { loadStartTime: number, loadEndTime: number }): Promise<AzureExtensionApiProvider> {
     ext.context = context;
     ext.reporter = createTelemetryReporter(context);
     ext.ui = new AzureUserInput(context.globalState);
     ext.outputChannel = vscode.window.createOutputChannel("Azure Cosmos DB");
     context.subscriptions.push(ext.outputChannel);
     registerUIExtensionVariables(ext);
+    activator.setRegisterCommand(ui.registerCommand);
+
+    function registerCommand(commandId: string, callback: (this: IActionContext, ...args: unknown[]) => unknown, debounce?: number): void {
+        activator.registerCommand(commandId, callback, debounce);
+    }
 
     await callWithTelemetryAndErrorHandling('cosmosDB.activate', async function (this: IActionContext): Promise<void> {
         this.properties.isActivationEvent = 'true';
@@ -77,9 +79,9 @@ export async function activateInternal(context: vscode.ExtensionContext, perfSta
 
         const editorManager: CosmosEditorManager = new CosmosEditorManager(context.globalState);
 
-        registerDocDBCommands(editorManager);
-        registerGraphCommands(context);
-        registerMongoCommands(context, editorManager);
+        registerDocDBCommands(activator, editorManager);
+        registerGraphCommands(context, activator);
+        registerMongoCommands(context, activator, editorManager);
 
         // Common commands
         const accountContextValues: string[] = [GraphAccountTreeItem.contextValue, DocDBAccountTreeItem.contextValue, TableAccountTreeItem.contextValue, MongoAccountTreeItem.contextValue];

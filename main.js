@@ -12,8 +12,13 @@
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
+const dev = require('./out/activation');
 
 Object.defineProperty(exports, "__esModule", { value: true });
+
+let activator = dev.createActivator();
+const packageJson = fs.readFileSync(path.join(__dirname, 'package.json'));
+activator.registerCommands(packageJson);
 
 let perfStats = {
     loadStartTime: Date.now(),
@@ -22,18 +27,18 @@ let perfStats = {
 
 let extension;
 
-setTimeout(async () => {
-    extension = require("./dist/extension.bundle");
-    return await extension.activateInternal(ctx, perfStats);
-}, 0);
-
 async function activate(ctx) {
-    registerCommands();
+    setTimeout(async () => {
+        extension = require("./dist/extension.bundle");
+        let api = await extension.activateInternal(ctx, activator, perfStats);
+        activator.lockCommands();
+        return api;
+    }, 0);
 }
 
 async function deactivate(ctx) {
     if (extension) {
-        return await extension.deactivateInternal(ctx, perfStats);
+        return await extension.deactivateInternal();
     }
 }
 
@@ -42,16 +47,3 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 
 perfStats.loadEndTime = Date.now();
-
-function registerCommands() {
-    const package = fs.readFileSync(path.join(__dirname, 'package.json'));
-    const packageJson = JSON.parse(package);
-
-    for (let command of packageJson.contributes.commands) {
-        vscode.commands.registerCommand(command.command, (...args) => callback(command.command, args));
-    }
-}
-
-function callback(command, ...args) {
-    console.log(command, ...args);
-}

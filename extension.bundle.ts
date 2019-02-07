@@ -11,6 +11,7 @@
 
 // Export activate/deactivate for main.js
 export { activateInternal, deactivateInternal } from './src/extension';
+export { registerCommand } from 'vscode-azureextensionui';
 
 // Exports for tests
 // The tests are not packaged with the webpack bundle and therefore only have access to code exported from this file.

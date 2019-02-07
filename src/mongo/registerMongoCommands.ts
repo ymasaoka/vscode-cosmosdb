@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IActivator } from 'activationTypes';
 import * as vscode from 'vscode';
-import { AzureTreeItem, callWithTelemetryAndErrorHandling, IActionContext, registerCommand, registerEvent } from "vscode-azureextensionui";
+import { AzureTreeItem, callWithTelemetryAndErrorHandling, IActionContext, registerEvent } from "vscode-azureextensionui";
 import { CosmosEditorManager } from "../CosmosEditorManager";
 import { ext } from "../extensionVariables";
 import * as vscodeUtil from '../utils/vscodeUtils';
@@ -20,7 +21,7 @@ import { MongoDocumentTreeItem } from "./tree/MongoDocumentTreeItem";
 const connectedDBKey: string = 'ms-azuretools.vscode-cosmosdb.connectedDB';
 let diagnosticsCollection: vscode.DiagnosticCollection;
 
-export function registerMongoCommands(context: vscode.ExtensionContext, editorManager: CosmosEditorManager): void {
+export function registerMongoCommands(context: vscode.ExtensionContext, activator: IActivator, editorManager: CosmosEditorManager): void {
     let languageClient: MongoDBLanguageClient = new MongoDBLanguageClient(context);
 
     const codeLensProvider = new MongoCodeLensProvider();
@@ -33,7 +34,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
 
     const loadPersistedMongoDBTask: Promise<void> = loadPersistedMongoDB(context, languageClient, codeLensProvider);
 
-    registerCommand('cosmosDB.createMongoDatabase', async (node?: MongoAccountTreeItem) => {
+    activator.registerCommand('cosmosDB.createMongoDatabase', async (node?: MongoAccountTreeItem) => {
         if (!node) {
             node = <MongoAccountTreeItem>await ext.tree.showTreeItemPicker(MongoAccountTreeItem.contextValue);
         }
@@ -45,7 +46,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
 
         await vscode.commands.executeCommand('cosmosDB.connectMongoDB', databaseNode);
     });
-    registerCommand('cosmosDB.createMongoCollection', async (node?: MongoDatabaseTreeItem) => {
+    activator.registerCommand('cosmosDB.createMongoCollection', async (node?: MongoDatabaseTreeItem) => {
         if (!node) {
             node = <MongoDatabaseTreeItem>await ext.tree.showTreeItemPicker(MongoDatabaseTreeItem.contextValue);
         }
@@ -53,7 +54,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
         await ext.treeView.reveal(collectionNode);
         await vscode.commands.executeCommand('cosmosDB.connectMongoDB', collectionNode.parent);
     });
-    registerCommand('cosmosDB.createMongoDocument', async (node?: MongoCollectionTreeItem) => {
+    activator.registerCommand('cosmosDB.createMongoDocument', async (node?: MongoCollectionTreeItem) => {
         if (!node) {
             node = <MongoCollectionTreeItem>await ext.tree.showTreeItemPicker(MongoCollectionTreeItem.contextValue);
         }
@@ -61,7 +62,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
         await ext.treeView.reveal(documentNode);
         await vscode.commands.executeCommand("cosmosDB.openDocument", documentNode);
     });
-    registerCommand('cosmosDB.connectMongoDB', async (node?: MongoDatabaseTreeItem) => {
+    activator.registerCommand('cosmosDB.connectMongoDB', async (node?: MongoDatabaseTreeItem) => {
         if (!node) {
             node = <MongoDatabaseTreeItem>await ext.tree.showTreeItemPicker(MongoDatabaseTreeItem.contextValue);
         }
@@ -80,7 +81,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
             }
         }
     });
-    registerCommand('cosmosDB.deleteMongoDB', async (node?: MongoDatabaseTreeItem) => {
+    activator.registerCommand('cosmosDB.deleteMongoDB', async (node?: MongoDatabaseTreeItem) => {
         if (!node) {
             node = <MongoDatabaseTreeItem>await ext.tree.showTreeItemPicker(MongoDatabaseTreeItem.contextValue);
         }
@@ -91,27 +92,27 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
             languageClient.disconnect();
         }
     });
-    registerCommand('cosmosDB.deleteMongoCollection', async (node?: MongoCollectionTreeItem) => {
+    activator.registerCommand('cosmosDB.deleteMongoCollection', async (node?: MongoCollectionTreeItem) => {
         if (!node) {
             node = <MongoCollectionTreeItem>await ext.tree.showTreeItemPicker(MongoCollectionTreeItem.contextValue);
         }
         await node.deleteTreeItem();
     });
-    registerCommand('cosmosDB.deleteMongoDocument', async (node?: MongoDocumentTreeItem) => {
+    activator.registerCommand('cosmosDB.deleteMongoDocument', async (node?: MongoDocumentTreeItem) => {
         if (!node) {
             node = <MongoDocumentTreeItem>await ext.tree.showTreeItemPicker(MongoDocumentTreeItem.contextValue);
         }
         await node.deleteTreeItem();
     });
-    registerCommand('cosmosDB.openCollection', async (node?: MongoCollectionTreeItem) => {
+    activator.registerCommand('cosmosDB.openCollection', async (node?: MongoCollectionTreeItem) => {
         if (!node) {
             node = <MongoCollectionTreeItem>await ext.tree.showTreeItemPicker(MongoCollectionTreeItem.contextValue);
         }
         await editorManager.showDocument(new MongoCollectionNodeEditor(node), node.label + '-cosmos-collection.json');
     });
-    registerCommand('cosmosDB.launchMongoShell', launchMongoShell);
-    registerCommand('cosmosDB.newMongoScrapbook', async () => await vscodeUtil.showNewFile('', context.extensionPath, 'Scrapbook', '.mongo'));
-    registerCommand('cosmosDB.executeMongoCommand', async function (this: IActionContext, commandText: object) {
+    activator.registerCommand('cosmosDB.launchMongoShell', launchMongoShell);
+    activator.registerCommand('cosmosDB.newMongoScrapbook', async () => await vscodeUtil.showNewFile('', context.extensionPath, 'Scrapbook', '.mongo'));
+    activator.registerCommand('cosmosDB.executeMongoCommand', async function (this: IActionContext, commandText: object) {
         await loadPersistedMongoDBTask;
         if (typeof commandText === "string") {
             await executeCommandFromText(ext.connectedMongoDB, context.extensionPath, editorManager, this, <string>commandText);
@@ -119,7 +120,7 @@ export function registerMongoCommands(context: vscode.ExtensionContext, editorMa
             await executeCommandFromActiveEditor(ext.connectedMongoDB, context.extensionPath, editorManager, this);
         }
     });
-    registerCommand('cosmosDB.executeAllMongoCommands', async function (this: IActionContext) {
+    activator.registerCommand('cosmosDB.executeAllMongoCommands', async function (this: IActionContext) {
         await loadPersistedMongoDBTask;
         await executeAllCommandsFromActiveEditor(ext.connectedMongoDB, context.extensionPath, editorManager, this);
     });
