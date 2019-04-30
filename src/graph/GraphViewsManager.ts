@@ -42,13 +42,21 @@ export class GraphViewsManager implements IServerProvider { //Graphviews Panel
       existingPanel.reveal();
       return;
     }
+
+    const dynamicServerPort: number = this._servers.get(id).port;
+    // Make the mapping of webviewPort and extensionHostPort explicit so that access to port-forwarded content will still work
+    const localhostMapping: vscode.WebviewPortMapping = { webviewPort: dynamicServerPort, extensionHostPort: dynamicServerPort };
+
     const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
     const options: vscode.WebviewOptions & vscode.WebviewPanelOptions = {
       enableScripts: true,
       enableCommandUris: true,
       enableFindWidget: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.file(this._context.extensionPath)]
+      localResourceRoots: [vscode.Uri.file(this._context.extensionPath)],
+      portMapping: [
+        localhostMapping
+      ]
     };
     const panel = vscode.window.createWebviewPanel(this._panelViewType, tabTitle, { viewColumn: column, preserveFocus: true }, options);
     let contentProvider = new WebviewContentProvider(this, this._context);
