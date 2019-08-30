@@ -112,13 +112,14 @@ export class AttachedAccountsTreeItem extends AzureParentTreeItem {
     }
 
     private async canConnectToLocalMongoDB(): Promise<boolean> {
-        try {
-            let db = await connectToMongoClient(localMongoConnectionString, appendExtensionUserAgent());
-            db.close();
-            return true;
-        } catch (error) {
-            return false;
-        }
+        return true; //asdf
+        // try {
+        //     let db = await connectToMongoClient(localMongoConnectionString, appendExtensionUserAgent());
+        //     db.close();
+        //     return true;
+        // } catch (error) {
+        //     return false;
+        // }
     }
 
     public async attachNewAccount(): Promise<void> {

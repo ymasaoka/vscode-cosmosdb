@@ -57,7 +57,7 @@ export class MongoAccountTreeItem extends AzureParentTreeItem<IMongoTreeRoot> {
                 throw new Error('Missing connection string');
             }
 
-            db = await connectToMongoClient(this.connectionString, appendExtensionUserAgent());
+            //db = await connectToMongoClient(this.connectionString, appendExtensionUserAgent());
             let databaseInConnectionString = getDatabaseNameFromConnectionString(this.connectionString);
             if (databaseInConnectionString && !this.root.isEmulator) { // emulator violates the connection string format
                 // If the database is in the connection string, that's all we connect to (we might not even have permissions to list databases)
@@ -66,8 +66,22 @@ export class MongoAccountTreeItem extends AzureParentTreeItem<IMongoTreeRoot> {
                     empty: false
                 }];
             } else {
-                let result: { databases: IDatabaseInfo[] } = await db.admin().listDatabases();
-                databases = result.databases;
+                //let result: { databases: IDatabaseInfo[] } = await db.admin().listDatabases();
+                databases = [
+                    {
+                        "name": "admin",
+                        "empty": false
+                    },
+                    {
+                        "name": "config",
+                        "empty": false
+                    },
+                    {
+                        "name": "local",
+                        "empty": false
+                    }
+                ];
+
             }
             return databases
                 .filter((database: IDatabaseInfo) => !(database.name && database.name.toLowerCase() === "admin" && database.empty)) // Filter out the 'admin' database if it's empty

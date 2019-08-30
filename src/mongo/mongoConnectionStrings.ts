@@ -45,25 +45,25 @@ export function addDatabaseToAccountConnectionString(connectionString: string, d
 }
 
 export async function parseMongoConnectionString(connectionString: string): Promise<ParsedMongoConnectionString> {
-    let host: string;
-    let port: string;
+    let host: string = "127.0.0.1";
+    let port: string = "27017";
 
-    const db = await connectToMongoClient(connectionString, appendExtensionUserAgent());
-    const serverConfig = db.serverConfig;
+    //const db = await connectToMongoClient(connectionString, appendExtensionUserAgent());
+    //const serverConfig = db.serverConfig;
     // Azure CosmosDB comes back as a ReplSet
-    if (serverConfig instanceof ReplSet) {
-        // get the first connection string from the seedlist for the ReplSet
-        // this may not be best solution, but the connection (below) gives
-        // the replicaset host name, which is different than what is in the connection string
-        // "s" is not part of ReplSet static definition but can't find any official documentation on it. Yet it is definitely there at runtime. Grandfathering in.
-        // tslint:disable-next-line:no-any
-        let rs: any = serverConfig;
-        host = rs.s.replset.s.seedlist[0].host;
-        port = rs.s.replset.s.seedlist[0].port;
-    } else {
-        host = serverConfig['host'];
-        port = serverConfig['port'];
-    }
+    // if (serverConfig instanceof ReplSet) {
+    //     // get the first connection string from the seedlist for the ReplSet
+    //     // this may not be best solution, but the connection (below) gives
+    //     // the replicaset host name, which is different than what is in the connection string
+    //     // "s" is not part of ReplSet static definition but can't find any official documentation on it. Yet it is definitely there at runtime. Grandfathering in.
+    //     // tslint:disable-next-line:no-any
+    //     let rs: any = serverConfig;
+    //     host = rs.s.replset.s.seedlist[0].host;
+    //     port = rs.s.replset.s.seedlist[0].port;
+    // } else {
+    //     host = serverConfig['host'];
+    //     port = serverConfig['port'];
+    // }
 
     return new ParsedMongoConnectionString(connectionString, host, port, getDatabaseNameFromConnectionString(connectionString));
 }
