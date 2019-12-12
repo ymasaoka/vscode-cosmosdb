@@ -6,7 +6,7 @@
 import { DatabaseAccount } from 'azure-arm-cosmosdb/lib/models';
 import { MongoClient } from 'mongodb';
 import * as vscode from 'vscode';
-import { appendExtensionUserAgent, AzureParentTreeItem, AzureTreeItem, ICreateChildImplContext, parseError } from 'vscode-azureextensionui';
+import { AzureParentTreeItem, AzureTreeItem, ICreateChildImplContext, parseError } from 'vscode-azureextensionui';
 import { deleteCosmosDBAccount } from '../../commands/deleteCosmosDBAccount';
 import { getThemedIconPath, Links, testDb } from '../../constants';
 import { ext } from '../../extensionVariables';
@@ -57,7 +57,7 @@ export class MongoAccountTreeItem extends AzureParentTreeItem<IMongoTreeRoot> {
                 throw new Error('Missing connection string');
             }
 
-            mongoClient = await connectToMongoClient(this.connectionString, appendExtensionUserAgent());
+            mongoClient = await connectToMongoClient(this.connectionString, this.databaseAccount.name);
 
             let databaseInConnectionString = getDatabaseNameFromConnectionString(this.connectionString);
             if (databaseInConnectionString && !this.root.isEmulator) { // emulator violates the connection string format
