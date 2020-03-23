@@ -27,11 +27,11 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
     public readonly parent: PostgresServerTreeItem;
 
     private readonly _serviceName: string = "ms-azuretools.vscode-cosmosdb.postgresPasswords";
+    private _keytar: KeyTar;
     private _usernameSuffix: string;
     private _usernamePlaceholder: string;
     private _usernameRegex: RegExp;
     private _serverId: string;
-    private _keytar: KeyTar;
 
     constructor(parent: PostgresServerTreeItem, databaseName: string) {
         super(parent);
