@@ -6,11 +6,12 @@
 import { Client, ClientConfig } from 'pg';
 import pgStructure, { Db } from 'pg-structure';
 import * as vscode from 'vscode';
-import { AzureParentTreeItem, ISubscriptionContext } from 'vscode-azureextensionui';
+import { AzExtTreeItem, AzureParentTreeItem, IParsedError, ISubscriptionContext, parseError } from 'vscode-azureextensionui';
 import { getThemeAgnosticIconPath } from '../../constants';
 import { ext } from '../../extensionVariables';
 import { KeyTar, tryGetKeyTar } from '../../utils/keytar';
 import { localize } from '../../utils/localize';
+import { PostgresEnterCredentialsTreeItem } from './PostgresEnterCredentialsTreeItem';
 import { PostgresSchemaTreeItem } from './PostgresSchemaTreeItem';
 import { PostgresServerTreeItem } from './PostgresServerTreeItem';
 
@@ -59,50 +60,55 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
         return false;
     }
 
-    public async loadMoreChildrenImpl(_clearCache: boolean): Promise<PostgresSchemaTreeItem[]> {
-        const { username, password, persistServer } = await this.getCredentials();
+    public async loadMoreChildrenImpl(_clearCache: boolean): Promise<AzExtTreeItem[]> {
+        try {
+            const { username, password } = await this.getCredentials(false, true);
 
-        const sslString: string = process.env.POSTGRES_SSL;
-        const ssl: boolean = sslString === 'true';
-        const host: string = this.parent.server.fullyQualifiedDomainName;
-        const clientConfig: ClientConfig = { user: username, password, ssl, host, port: 5432, database: this.databaseName };
-        const accountConnection: Client = new Client(clientConfig);
-        const db: Db = await pgStructure(accountConnection);
+            const sslString: string = process.env.POSTGRES_SSL;
+            const ssl: boolean = sslString === 'true';
+            const host: string = this.parent.server.fullyQualifiedDomainName;
+            const clientConfig: ClientConfig = { user: username, password, ssl, host, port: 5432, database: this.databaseName };
+            const accountConnection: Client = new Client(clientConfig);
+            const db: Db = await pgStructure(accountConnection);
+            return db.schemas.map(schema => new PostgresSchemaTreeItem(this, schema));
+        } catch (error) {
+            const parsedError: IParsedError = parseError(error);
 
-        // The credentials are valid since the database connection was established. Persist if necessary
-        if (persistServer) {
-            await this.persistServer(username, password);
+            if (parsedError.errorType !== 'UserCancelledError') {
+                // tslint:disable-next-line: no-floating-promises
+                ext.ui.showWarningMessage(localize('couldNotConnect', 'Could not connect to "{0}": {1}', this.parent.label, parsedError.message));
+            }
+
+            return [new PostgresEnterCredentialsTreeItem(this)];
         }
-
-        return db.schemas.map(schema => new PostgresSchemaTreeItem(this, schema));
     }
 
-    private async getCredentials(): Promise<{ username: string, password: string, persistServer: boolean }> {
+    public async getCredentials(forcePrompt: boolean, warnBeforePrompting: boolean): Promise<{ username: string, password: string }> {
         let username: string | undefined;
         let password: string | undefined;
-        let persistServer: boolean = false;
 
-        const storedValue: string | undefined = ext.context.globalState.get(this._serviceName);
-        if (storedValue && this._keytar) {
-            const servers: IPersistedServer[] = JSON.parse(storedValue);
-            for (const server of servers) {
-                if (server.id === this._serverId) {
-                    username = server.username;
-                    password = await this._keytar.getPassword(this._serviceName, this._serverId);
-                    break;
+        if (!forcePrompt) {
+            const storedValue: string | undefined = ext.context.globalState.get(this._serviceName);
+            if (storedValue && this._keytar) {
+                const servers: IPersistedServer[] = JSON.parse(storedValue);
+                for (const server of servers) {
+                    if (server.id === this._serverId) {
+                        username = server.username;
+                        password = await this._keytar.getPassword(this._serviceName, this._serverId);
+                        break;
+                    }
                 }
             }
         }
 
         if (!username || !password) {
-            // This server's credentials haven't been cached yet
-            persistServer = true;
-
-            await ext.ui.showWarningMessage(
-                localize('mustEnterUsernameAndPassword', 'You must enter the username and password for server "{0}" to continue.', this.parent.label),
-                { modal: true },
-                { title: localize('continue', 'Continue') }
-            );
+            if (warnBeforePrompting) {
+                await ext.ui.showWarningMessage(
+                    localize('mustEnterUsernameAndPassword', 'You must enter the username and password for server "{0}" to continue.', this.parent.label),
+                    { modal: true },
+                    { title: localize('continue', 'Continue') }
+                );
+            }
 
             username = await ext.ui.showInputBox({
                 prompt: localize('enterUsername', 'Enter username for server "{0}"', this.parent.label),
@@ -115,9 +121,11 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
                 password: true,
                 validateInput: (value: string) => { return value.length ? undefined : localize('passwordCannotBeEmpty', 'Password cannot be empty.'); }
             });
+
+            await this.persistServer(username, password);
         }
 
-        return { username, password, persistServer };
+        return { username, password };
     }
 
     private validateUsername(value: string): string | undefined {
