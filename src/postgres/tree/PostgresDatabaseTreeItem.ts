@@ -119,7 +119,7 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
             password = await ext.ui.showInputBox({
                 prompt: localize('enterPassword', 'Enter password for server "{0}"', this.parent.label),
                 password: true,
-                validateInput: (value: string) => { return value.length ? undefined : localize('passwordCannotBeEmpty', 'Password cannot be empty.'); }
+                validateInput: (value: string) => { return (value && value.length) ? undefined : localize('passwordCannotBeEmpty', 'Password cannot be empty.'); }
             });
 
             await this.persistServer(username, password);

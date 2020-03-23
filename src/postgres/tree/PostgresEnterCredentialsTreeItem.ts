@@ -17,10 +17,6 @@ export class PostgresEnterCredentialsTreeItem extends AzureTreeItem<ISubscriptio
         super(parent);
     }
 
-    public get id(): string {
-        return this.contextValue;
-    }
-
     public get label(): string {
         return localize('enterCredentials', 'Enter server credentials to connect to "{0}"...', this.parent.label);
     }
