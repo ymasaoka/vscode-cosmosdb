@@ -3,27 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import PostgreSQLManagementClient from 'azure-arm-postgresql';
 import { Client, ClientConfig } from 'pg';
-import pgStructure, { Db } from 'pg-structure';
 import { ConnectionOptions } from 'tls';
-import * as vscode from 'vscode';
-import { AzExtTreeItem, AzureParentTreeItem, GenericTreeItem, IParsedError, ISubscriptionContext, parseError } from 'vscode-azureextensionui';
+import { AzExtTreeItem, AzureParentTreeItem, createAzureClient, GenericTreeItem, IParsedError, ISubscriptionContext, parseError, TreeItemIconPath } from 'vscode-azureextensionui';
 import { getThemeAgnosticIconPath } from '../../constants';
 import { ext } from '../../extensionVariables';
+import { azureUtils } from '../../utils/azureUtils';
 import { localize } from '../../utils/localize';
 import { nonNullProp } from '../../utils/nonNull';
-import { PostgresSchemaTreeItem } from './PostgresSchemaTreeItem';
+import { PostgresFunctionsTreeItem } from './PostgresFunctionsTreeItem';
 import { PostgresServerTreeItem } from './PostgresServerTreeItem';
+import { PostgresTablesTreeItem } from './PostgresTablesTreeItem';
 
-const invalidCredentialsErrorType: string = '28P01';
-const firewallNotConfiguredErrorType: string = '28000';
+export const invalidCredentialsErrorType: string = '28P01';
+export const firewallNotConfiguredErrorType: string = '28000';
 
 export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionContext> {
     public static contextValue: string = "postgresDatabase";
     public readonly contextValue: string = PostgresDatabaseTreeItem.contextValue;
-    public readonly childTypeLabel: string = "Schema";
+    public readonly childTypeLabel: string = "Resource Type";
     public readonly databaseName: string;
     public readonly parent: PostgresServerTreeItem;
+    public autoSelectInTreeItemPicker: boolean = true;
 
     constructor(parent: PostgresServerTreeItem, databaseName: string) {
         super(parent);
@@ -34,11 +36,15 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
         return this.databaseName;
     }
 
+    public get description(): string {
+        return ext.connectedPostgresDB?.fullId === this.fullId ? localize('connected', 'Connected') : '';
+    }
+
     public get id(): string {
         return this.databaseName;
     }
 
-    public get iconPath(): string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } {
+    public get iconPath(): TreeItemIconPath {
         return getThemeAgnosticIconPath('Database.svg');
     }
 
@@ -47,48 +53,72 @@ export class PostgresDatabaseTreeItem extends AzureParentTreeItem<ISubscriptionC
     }
 
     public async loadMoreChildrenImpl(_clearCache: boolean): Promise<AzExtTreeItem[]> {
-        const { username, password } = await this.parent.getCredentials();
+        try {
+            const clientConfig: ClientConfig = await this.getClientConfig();
+            const functionsTreeItem = new PostgresFunctionsTreeItem(this, clientConfig);
+            const tablesTreeItem = new PostgresTablesTreeItem(this, clientConfig);
 
-        if (username && password) {
-            try {
-                const ssl: ConnectionOptions = {
-                    // Always provide the certificate since it is accepted even when SSL is disabled
-                    // Certificate source: https://aka.ms/AA7wnvl
-                    ca: BaltimoreCyberTrustRoot
-                };
+            return [functionsTreeItem, tablesTreeItem];
+        } catch (error) {
+            const parsedError: IParsedError = parseError(error);
 
-                const host: string = nonNullProp(this.parent.server, 'fullyQualifiedDomainName');
-                const clientConfig: ClientConfig = { user: username, password, ssl, host, port: 5432, database: this.databaseName };
-                const accountConnection: Client = new Client(clientConfig);
-                const db: Db = await pgStructure(accountConnection);
-                return db.schemas.map(schema => new PostgresSchemaTreeItem(this, schema));
-            } catch (error) {
-                const parsedError: IParsedError = parseError(error);
-
-                if (parsedError.errorType === invalidCredentialsErrorType) {
-                    // tslint:disable-next-line: no-floating-promises
-                    ext.ui.showWarningMessage(localize('couldNotConnect', 'Could not connect to "{0}": {1}', this.parent.label, parsedError.message));
-                } else if (parsedError.errorType === firewallNotConfiguredErrorType) {
-                    const firewallTreeItem: AzExtTreeItem = new GenericTreeItem(this, {
-                        contextValue: 'postgresFirewall',
-                        label: localize('configureFirewall', 'Configure firewall to connect to "{0}"...', this.parent.label),
-                        commandId: 'cosmosDB.configurePostgresFirewall'
-                    });
-                    firewallTreeItem.commandArgs = [this.parent];
-                    return [firewallTreeItem];
-                } else {
-                    throw error;
-                }
+            if (parsedError.errorType === invalidCredentialsErrorType) {
+                // tslint:disable-next-line: no-floating-promises
+                ext.ui.showWarningMessage(localize('couldNotConnect', 'Could not connect to "{0}": {1}', this.parent.label, parsedError.message));
+            } else if (parsedError.errorType === firewallNotConfiguredErrorType) {
+                const firewallTreeItem: AzExtTreeItem = new GenericTreeItem(this, {
+                    contextValue: 'postgresFirewall',
+                    label: localize('configureFirewall', 'Configure firewall to connect to "{0}"...', this.parent.label),
+                    commandId: 'postgreSQL.configureFirewall'
+                });
+                firewallTreeItem.commandArgs = [this.parent];
+                return [firewallTreeItem];
+            } else {
+                throw error;
             }
         }
 
         const credentialsTreeItem: AzExtTreeItem = new GenericTreeItem(this, {
             contextValue: 'postgresCredentials',
             label: localize('enterCredentials', 'Enter server credentials to connect to "{0}"...', this.parent.label),
-            commandId: 'cosmosDB.enterPostgresCredentials'
+            commandId: 'postgreSQL.enterCredentials'
         });
         credentialsTreeItem.commandArgs = [this.parent];
         return [credentialsTreeItem];
+    }
+
+    public async deleteTreeItemImpl(): Promise<void> {
+        const client: PostgreSQLManagementClient = createAzureClient(this.root, PostgreSQLManagementClient);
+        await client.databases.deleteMethod(azureUtils.getResourceGroupFromId(this.fullId), this.parent.name, this.databaseName);
+    }
+
+    public async getClientConfig(): Promise<ClientConfig> {
+        const { username, password } = await this.parent.getCredentials();
+
+        if (username && password) {
+            const ssl: ConnectionOptions = {
+                // Always provide the certificate since it is accepted even when SSL is disabled
+                // Certificate source: https://aka.ms/AA7wnvl
+                ca: BaltimoreCyberTrustRoot
+            };
+
+            const host: string = nonNullProp(this.parent.server, 'fullyQualifiedDomainName');
+            const clientConfig: ClientConfig = { user: username, password, ssl, host, port: 5432, database: this.databaseName };
+
+            // Ensure the client config is valid before returning
+            const client: Client = new Client(clientConfig);
+            try {
+                await client.connect();
+                return clientConfig;
+            } finally {
+                await client.end();
+            }
+        } else {
+            throw {
+                message: localize('mustEnterCredentials', 'Must enter credentials to connect to server.'),
+                code: invalidCredentialsErrorType
+            };
+        }
     }
 }
 

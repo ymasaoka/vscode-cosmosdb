@@ -3,15 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import PostgreSQLManagementClient from "azure-arm-postgresql";
-import { FirewallRule } from "azure-arm-postgresql/lib/models";
+import PostgreSQLManagementClient from 'azure-arm-postgresql';
+import { FirewallRule } from 'azure-arm-postgresql/lib/models';
 import * as publicIp from 'public-ip';
 import * as vscode from 'vscode';
 import { createAzureClient, DialogResponses, IActionContext } from "vscode-azureextensionui";
 import { ext } from "../../extensionVariables";
 import { azureUtils } from "../../utils/azureUtils";
 import { localize } from "../../utils/localize";
-import { nonNullProp } from "../../utils/nonNull";
+import { nonNullProp } from '../../utils/nonNull';
 import { PostgresServerTreeItem } from "../tree/PostgresServerTreeItem";
 
 export async function configurePostgresFirewall(context: IActionContext, treeItem?: PostgresServerTreeItem): Promise<void> {
@@ -19,12 +19,17 @@ export async function configurePostgresFirewall(context: IActionContext, treeIte
         treeItem = <PostgresServerTreeItem>await ext.tree.showTreeItemPicker(PostgresServerTreeItem.contextValue, context);
     }
 
-    const ip: string = await publicIp.v4();
+    const ip: string = await getPublicIp();
     await ext.ui.showWarningMessage(
         localize('firewallRuleWillBeAdded', 'A firewall rule for your IP ({0}) will be added to server "{1}". Would you like to continue?', ip, treeItem.server.name),
         { modal: true },
         { title: DialogResponses.yes.title }
     );
+
+    await setFirewallRule(treeItem, ip);
+}
+
+export async function setFirewallRule(treeItem: PostgresServerTreeItem, ip: string): Promise<void> {
 
     const client: PostgreSQLManagementClient = createAzureClient(treeItem.root, PostgreSQLManagementClient);
     const resourceGroup: string = azureUtils.getResourceGroupFromId(treeItem.id);
@@ -46,4 +51,15 @@ export async function configurePostgresFirewall(context: IActionContext, treeIte
     });
 
     await treeItem.refresh();
+}
+
+export async function getPublicIp(): Promise<string> {
+    const options: vscode.ProgressOptions = {
+        location: vscode.ProgressLocation.Notification,
+        title: localize('gettingPublicIp', 'Getting public IP...')
+    };
+
+    return await vscode.window.withProgress(options, async () => {
+        return await publicIp.v4();
+    });
 }

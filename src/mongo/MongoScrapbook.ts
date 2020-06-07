@@ -11,9 +11,9 @@ import { TerminalNode } from 'antlr4ts/tree/TerminalNode';
 import { ObjectID } from 'bson';
 import * as vscode from 'vscode';
 import { IActionContext, IParsedError, parseError } from 'vscode-azureextensionui';
-import { CosmosEditorManager } from '../CosmosEditorManager';
 import { ext } from '../extensionVariables';
 import { filterType, findType } from '../utils/array';
+import { localize } from '../utils/localize';
 import { nonNullProp, nonNullValue } from '../utils/nonNull';
 import * as vscodeUtil from './../utils/vscodeUtils';
 import { MongoFindOneResultEditor } from './editors/MongoFindOneResultEditor';
@@ -42,21 +42,16 @@ export function getAllErrorsFromTextDocument(document: vscode.TextDocument): vsc
     return errors;
 }
 
-export async function executeAllCommandsFromActiveEditor(editorManager: CosmosEditorManager, context: IActionContext): Promise<void> {
+export async function executeAllCommandsFromActiveEditor(context: IActionContext): Promise<void> {
     ext.outputChannel.appendLog("Executing all commands in scrapbook...");
     const commands = getAllCommandsFromActiveEditor();
-    await executeCommands(editorManager, context, commands);
+    await executeCommands(context, commands);
 }
 
-export async function executeCommandFromActiveEditor(editorManager: CosmosEditorManager, context: IActionContext): Promise<void> {
+export async function executeCommandFromActiveEditor(context: IActionContext, position?: vscode.Position): Promise<void> {
     const commands = getAllCommandsFromActiveEditor();
-    const command = findCommandAtPosition(commands, vscode.window.activeTextEditor?.selection.start);
-    return await executeCommand(editorManager, context, command);
-}
-
-export async function executeCommandFromText(editorManager: CosmosEditorManager, context: IActionContext, commandText: string): Promise<void> {
-    const command = getCommandFromTextAtLocation(commandText, new vscode.Position(0, 0));
-    return await executeCommand(editorManager, context, command);
+    const command = findCommandAtPosition(commands, position || vscode.window.activeTextEditor?.selection.start);
+    return await executeCommand(context, command);
 }
 
 function getAllCommandsFromActiveEditor(): MongoCommand[] {
@@ -73,10 +68,10 @@ export function getAllCommandsFromTextDocument(document: vscode.TextDocument): M
     return getAllCommandsFromText(document.getText());
 }
 
-async function executeCommands(editorManager: CosmosEditorManager, context: IActionContext, commands: MongoCommand[]): Promise<void> {
+async function executeCommands(context: IActionContext, commands: MongoCommand[]): Promise<void> {
     for (const command of commands) {
         try {
-            await executeCommand(editorManager, context, command);
+            await executeCommand(context, command);
         } catch (e) {
             const err = parseError(e);
             if (err.isUserCancelledError) {
@@ -89,7 +84,7 @@ async function executeCommands(editorManager: CosmosEditorManager, context: IAct
     }
 }
 
-async function executeCommand(editorManager: CosmosEditorManager, context: IActionContext, command: MongoCommand): Promise<void> {
+async function executeCommand(context: IActionContext, command: MongoCommand): Promise<void> {
     if (command) {
         try {
             context.telemetry.properties.command = command.name;
@@ -105,19 +100,19 @@ async function executeCommand(editorManager: CosmosEditorManager, context: IActi
         if (command.errors && command.errors.length > 0) {
             //Currently, we take the first error pushed. Tests correlate that the parser visits errors in left-to-right, top-to-bottom.
             const err = command.errors[0];
-            throw new Error(`Error near line ${err.range.start.line}, column ${err.range.start.character}: '${err.message}'. Please check syntax.`);
+            throw new Error(localize('unableToParseSyntax', `Unable to parse syntax. Error near line ${err.range.start.line + 1}, column ${err.range.start.character + 1}: "${err.message}"`));
         }
 
         // we don't handle chained commands so we can only handle "find" if isn't chained
         if (command.name === 'find' && !command.chained) {
-            await editorManager.showDocument(context, new MongoFindResultEditor(database, command), 'cosmos-result.json', { showInNextColumn: true });
+            await ext.editorManager.showDocument(context, new MongoFindResultEditor(database, command), 'cosmos-result.json', { showInNextColumn: true });
         } else {
             const result = await database.executeCommand(command, context);
             if (command.name === 'findOne') {
                 if (result === "null") {
                     throw new Error(`Could not find any documents`);
                 }
-                await editorManager.showDocument(context, new MongoFindOneResultEditor(database, nonNullProp(command, 'collection'), result), 'cosmos-result.json', { showInNextColumn: true });
+                await ext.editorManager.showDocument(context, new MongoFindOneResultEditor(database, nonNullProp(command, 'collection'), result), 'cosmos-result.json', { showInNextColumn: true });
             } else {
                 const viewColumn = vscode.window.activeTextEditor?.viewColumn;
                 await vscodeUtil.showNewFile(result, 'result', '.json', viewColumn ? viewColumn + 1 : undefined);
@@ -138,11 +133,6 @@ async function refreshTreeAfterCommand(database: MongoDatabaseTreeItem, command:
             await collectionNode.refresh();
         }
     }
-}
-
-export function getCommandFromTextAtLocation(content: string, position?: vscode.Position): MongoCommand {
-    const commands = getAllCommandsFromText(content);
-    return findCommandAtPosition(commands, position);
 }
 
 export function getAllCommandsFromText(content: string): MongoCommand[] {
@@ -188,7 +178,7 @@ export function getAllCommandsFromText(content: string): MongoCommand[] {
     return commands;
 }
 
-function findCommandAtPosition(commands: MongoCommand[], position?: vscode.Position): MongoCommand {
+export function findCommandAtPosition(commands: MongoCommand[], position?: vscode.Position): MongoCommand {
     let lastCommandOnSameLine: MongoCommand | undefined;
     let lastCommandBeforePosition: MongoCommand | undefined;
     if (position) {

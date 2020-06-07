@@ -33,9 +33,9 @@ suite('SQL action', async function (this: Mocha.Suite): Promise<void> {
     });
 
     test('Create SQL account', async () => {
-        const testInputs: (string | RegExp)[] = [accountName, /SQL/, '$(plus) Create new resource group', resourceGroupName, 'West US'];
+        const testInputs: (string | RegExp)[] = [/SQL/, accountName, '$(plus) Create new resource group', resourceGroupName, 'West US'];
         await testUserInput.runWithInputs(testInputs, async () => {
-            await vscode.commands.executeCommand('cosmosDB.createAccount');
+            await vscode.commands.executeCommand('azureDatabases.createServer');
         });
         const getAccount: CosmosDBManagementModels.DatabaseAccount | undefined = await client.databaseAccounts.get(resourceGroupName, accountName);
         assert.ok(getAccount);
@@ -49,10 +49,7 @@ suite('SQL action', async function (this: Mocha.Suite): Promise<void> {
         await testUserInput.runWithInputs(testInputs, async () => {
             await vscode.commands.executeCommand('cosmosDB.createDocDBDatabase');
         });
-        const getDocDBClient: DocumentClient = await getClient(accountName);
-        const databaseMetaList: DatabaseMeta[] = await getDatabases(getDocDBClient);
-        const getDatabase: DatabaseMeta | undefined = databaseMetaList.find((database: DatabaseMeta) => database.id === databaseName);
-        assert.ok(getDatabase);
+        assert.ok(await getDatabaseMeta());
     });
 
     test('Create SQL collection', async () => {
@@ -62,10 +59,25 @@ suite('SQL action', async function (this: Mocha.Suite): Promise<void> {
         await testUserInput.runWithInputs(testInputs, async () => {
             await vscode.commands.executeCommand('cosmosDB.createDocDBCollection');
         });
-        const getDocDBClient: DocumentClient = await getClient(accountName);
-        const collectionMetaList: CollectionMeta[] = await getCollections(getDocDBClient, databaseName);
-        const getCollection: CollectionMeta | undefined = collectionMetaList.find((collection: CollectionMeta) => collection.id === collectionId2);
-        assert.ok(getCollection);
+        assert.ok(await getDocDBCollectionMeta(accountName, databaseName, collectionId2));
+    });
+
+    test('Delete SQL collection', async () => {
+        assert.ok(await getDocDBCollectionMeta(accountName, databaseName, collectionId2));
+        const testInputs: (string | RegExp)[] = [testAccount.getSubscriptionContext().subscriptionDisplayName, `${accountName} (SQL)`, databaseName, collectionId2, DialogResponses.deleteResponse.title];
+        await testUserInput.runWithInputs(testInputs, async () => {
+            await vscode.commands.executeCommand('cosmosDB.deleteDocDBCollection');
+        });
+        assert.ifError(await getDocDBCollectionMeta(accountName, databaseName, collectionId2));
+    });
+
+    test('Delete SQL Database', async () => {
+        assert.ok(await getDatabaseMeta());
+        const testInputs: (string | RegExp)[] = [testAccount.getSubscriptionContext().subscriptionDisplayName, `${accountName} (SQL)`, databaseName, DialogResponses.deleteResponse.title];
+        await testUserInput.runWithInputs(testInputs, async () => {
+            await vscode.commands.executeCommand('cosmosDB.deleteDocDBDatabase');
+        });
+        assert.ifError(await getDatabaseMeta());
     });
 
     test('Delete SQL account', async () => {
@@ -104,5 +116,17 @@ suite('SQL action', async function (this: Mocha.Suite): Promise<void> {
                 resolve(res);
             }
         }));
+    }
+
+    async function getDatabaseMeta(): Promise<DatabaseMeta | undefined> {
+        const getDocDBClient: DocumentClient = await getClient(accountName);
+        const databaseMetaList: DatabaseMeta[] = await getDatabases(getDocDBClient);
+        return databaseMetaList.find((database: DatabaseMeta) => database.id === databaseName);
+    }
+
+    async function getDocDBCollectionMeta(accountId: string, databaseId: string, collectionId: string): Promise<CollectionMeta | undefined> {
+        const getDocDBClient: DocumentClient = await getClient(accountId);
+        const collectionMetaList: CollectionMeta[] = await getCollections(getDocDBClient, databaseId);
+        return collectionMetaList.find((collection: CollectionMeta) => collection.id === collectionId);
     }
 });

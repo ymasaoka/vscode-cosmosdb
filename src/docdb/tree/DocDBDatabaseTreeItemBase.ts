@@ -31,7 +31,7 @@ export abstract class DocDBDatabaseTreeItemBase extends DocDBTreeItemBase<Collec
     }
 
     public get iconPath(): string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } {
-        return getThemeAgnosticIconPath('Database.svg');
+        return getThemeAgnosticIconPath('DocDatabase.svg');
     }
 
     public get id(): string {
@@ -61,7 +61,7 @@ export abstract class DocDBDatabaseTreeItemBase extends DocDBTreeItemBase<Collec
     // Delete the database
     public async deleteTreeItemImpl(): Promise<void> {
         const message: string = `Are you sure you want to delete database '${this.label}' and its contents?`;
-        const result = await vscode.window.showWarningMessage(message, { modal: true }, DialogResponses.deleteResponse, DialogResponses.cancel);
+        const result = await ext.ui.showWarningMessage(message, { modal: true }, DialogResponses.deleteResponse, DialogResponses.cancel);
         if (result === DialogResponses.deleteResponse) {
             const client = this.root.getDocumentClient();
             await new Promise((resolve, reject) => {
@@ -87,7 +87,8 @@ export abstract class DocDBDatabaseTreeItemBase extends DocDBTreeItemBase<Collec
         let partitionKey: string | undefined = await ext.ui.showInputBox({
             prompt: 'Enter the partition key for the collection, or leave blank for fixed size.',
             ignoreFocusOut: true,
-            validateInput: validatePartitionKey
+            validateInput: validatePartitionKey,
+            placeHolder: 'e.g. address/zipCode'
         });
 
         if (partitionKey && partitionKey.length && partitionKey[0] !== '/') {
